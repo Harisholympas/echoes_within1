@@ -125,7 +125,6 @@ const generateSliderScoresHTML = (sliderAnswers: Answer[]): string => {
   
   sliderAnswers.forEach((answer) => {
     const value = answer.value as number;
-    const percentage = (value / 10) * 100;
     const questionName = answer.questionId
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
@@ -142,25 +141,33 @@ const generateSliderScoresHTML = (sliderAnswers: Answer[]): string => {
   return html;
 };
 
-// Generate HTML for all answers
+// Generate HTML for all answers with questions and answers
 const generateAllAnswersHTML = (answers: Answer[]): string => {
   let html = '<div style="margin-top: 20px;">';
   
+  const questionLabels: { [key: string]: string } = {
+    'first_memory': 'First Memory',
+    'silence_together': 'Silence Together',
+    'one_word': 'One Word Feeling',
+    'unsaid': 'What They Never Said',
+    'final_truth': 'Final Truth / Importance'
+  };
+
   answers.forEach((answer, index) => {
     const value = typeof answer.value === 'number' 
       ? `${answer.value}/10` 
       : String(answer.value);
 
-    const questionName = answer.questionId
+    const questionName = questionLabels[answer.questionId] || answer.questionId
       .replace(/_/g, ' ')
       .replace(/\b\w/g, (l) => l.toUpperCase());
 
     html += `
-      <div style="background: #f9f9f7; padding: 12px; margin-bottom: 8px; border-left: 3px solid #8b7355; border-radius: 2px;">
-        <p style="margin: 0 0 4px 0; font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1px;">Question ${index + 1}</p>
-        <p style="margin: 0 0 4px 0; font-size: 12px; color: #666; font-weight: 600;"><strong>${questionName}</strong></p>
-        <p style="margin: 0 0 4px 0; font-size: 13px; color: #2c2c2c;"><strong>Response:</strong> ${value}</p>
-        ${answer.hiddenMeaning ? `<p style="margin: 0; font-size: 12px; color: #8b7355; font-style: italic;"><strong>Hidden Meaning:</strong> ${answer.hiddenMeaning}</p>` : ''}
+      <div style="background: #f9f9f7; padding: 15px; margin-bottom: 12px; border-left: 4px solid #8b7355; border-radius: 2px;">
+        <p style="margin: 0 0 8px 0; font-size: 12px; color: #999; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;">Question ${index + 1}</p>
+        <p style="margin: 0 0 8px 0; font-size: 14px; color: #2c2c2c; font-weight: 700;">${questionName}</p>
+        <p style="margin: 0; font-size: 13px; color: #3a3a3a; line-height: 1.6;">${value}</p>
+        ${answer.hiddenMeaning ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #8b7355; font-style: italic;"><strong>Hidden Meaning:</strong> ${answer.hiddenMeaning}</p>` : ''}
       </div>
     `;
   });
@@ -209,11 +216,11 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
         unspokenThought: analysis.unspokenThought,
         hiddenValues: analysis.hiddenValues.join(', '),
         sliderScoresHTML: sliderScoresHTML,
-        allAnswersHTML: '',
+        allAnswersHTML: allAnswersHTML,
       };
 
       const response = await emailjs.send(
-        'service_inocvwj',
+        'template_2pgm3qg',
         'template_2pgm3qg',
         templateParams,
         'i2c3sfhqVpIOSV8zG'
@@ -259,7 +266,7 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
       };
 
       const response = await emailjs.send(
-        'service_inocvwj',
+        'template_2pgm3qg',
         'template_2pgm3qg',
         templateParams,
         'i2c3sfhqVpIOSV8zG'
@@ -381,7 +388,7 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
             disabled={emailSent || isLoading}
             className={`sketch-button text-lg ${emailSent || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
-            {isLoading ? '...' : emailSent ? '✓ Result Sent' : 'Send Result via Email'}
+            {isLoading ? '...' : emailSent ? '✓ Result Sent' : 'Send Result'}
           </motion.button>
 
           <motion.button
