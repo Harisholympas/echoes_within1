@@ -117,27 +117,28 @@ const getPoetryResult = (analysis: ReturnType<typeof analyzeAnswers>): { title: 
 };
 
 const formatAllAnswers = (answers: Answer[]): string => {
-  let formattedAnswers = '\n════════════════════════════════════════\n';
-  formattedAnswers += '           ALL USER RESPONSES\n';
-  formattedAnswers += '════════════════════════════════════════\n\n';
+  let formatted = '\n\n════════════════════════════════════════\n';
+  formatted += '           ALL USER RESPONSES\n';
+  formatted += '════════════════════════════════════════\n\n';
 
   answers.forEach((answer, index) => {
-    formattedAnswers += `Question ${index + 1}:\n`;
-    formattedAnswers += `ID: ${answer.questionId}\n`;
-    formattedAnswers += `Response: ${answer.value}\n`;
+    formatted += `Question ${index + 1}:\n`;
+    formatted += `ID: ${answer.questionId}\n`;
+    formatted += `Response: ${answer.value}\n`;
     if (answer.hiddenMeaning) {
-      formattedAnswers += `Hidden Meaning: ${answer.hiddenMeaning}\n`;
+      formatted += `Hidden Meaning: ${answer.hiddenMeaning}\n`;
     }
-    formattedAnswers += '\n';
+    formatted += '\n';
   });
 
-  formattedAnswers += '════════════════════════════════════════\n';
-  return formattedAnswers;
+  formatted += '════════════════════════════════════════\n';
+  return formatted;
 };
 
 export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenProps) => {
   const [emailSent, setEmailSent] = useState(false);
   const [allAnswersEmailSent, setAllAnswersEmailSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const analysis = useMemo(() => analyzeAnswers(answers), [answers]);
   const result = useMemo(() => getPoetryResult(analysis), [analysis]);
@@ -148,85 +149,94 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
     sendEmail();
   }, []);
 
-  const sendEmail = () => {
-    const fullResult = `
-Player: ${playerName}
+  const sendEmail = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
 
-Timestamp: ${new Date().toISOString()}
+    try {
+      const templateParams = {
+        to_email: 'studentaiml6@gmail.com',
+        subject: `Echoes Within Result for ${playerName}`,
+        playerName: playerName,
+        timestamp: new Date().toISOString(),
+        trustLevel: analysis.trustLevel,
+        attachment: analysis.attachment,
+        emotionalTone: analysis.emotionalTone,
+        comfortInSilence: analysis.comfortInSilence,
+        importance: analysis.importance,
+        poemTitle: result.title,
+        poemLine1: result.poem[0],
+        poemLine2: result.poem[1],
+        poemLine3: result.poem[2],
+        poemLine4: result.poem[3],
+        rawMemory: analysis.rawMemory,
+        emotionWord: analysis.emotionWord,
+        unspokenThought: analysis.unspokenThought,
+        hiddenValues: analysis.hiddenValues.join(', '),
+      };
 
-Trust Level: ${analysis.trustLevel}
-Attachment: ${analysis.attachment}
-Emotional Tone: ${analysis.emotionalTone}
-Comfort in Silence: ${analysis.comfortInSilence}
-Importance: ${analysis.importance}
+      const response = await emailjs.send(
+        'service_inocvwj',
+        'template_2pgm3qg',
+        templateParams,
+        'i2c3sfhqVpIOSV8zG'
+      );
 
-Raw Memory: ${analysis.rawMemory}
-Emotion Word: ${analysis.emotionWord}
-Unspoken Thought: ${analysis.unspokenThought}
-
-Hidden Values: ${analysis.hiddenValues.join(', ')}
-
-Poem Title: ${result.title}
-Poem:
-${result.poem.join('\n')}
-`;
-
-    const templateParams = {
-      to_email: 'studentaiml6@gmail.com',
-      subject: `Echoes Within Result for ${playerName}`,
-      message: fullResult,
-    };
-
-    emailjs.send('service_inocvwj', 'template_2pgm3qg', templateParams, 'i2c3sfhqVpIOSV8zG')
-      .then((response) => {
-        console.log('Thank You for the attempt!', response.status, response.text);
-        setEmailSent(true);
-        alert('Results will be never shared!');
-      }, (error) => {
-        console.error('An error occured', error);
-        alert('Thank you for testing');
-      });
+      console.log('Result email sent successfully!', response.status, response.text);
+      setEmailSent(true);
+      alert('Your results have been sent. Thank you for exploring your echoes.');
+    } catch (error) {
+      console.error('Error sending result email:', error);
+      alert('Thank you for testing. Your journey has been recorded.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const sendAllAnswersEmail = () => {
-    const fullResult = `
-Player: ${playerName}
+  const sendAllAnswersEmail = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
 
-Timestamp: ${new Date().toISOString()}
+    try {
+      const allAnswersText = formatAllAnswers(answers);
 
-Trust Level: ${analysis.trustLevel}
-Attachment: ${analysis.attachment}
-Emotional Tone: ${analysis.emotionalTone}
-Comfort in Silence: ${analysis.comfortInSilence}
-Importance: ${analysis.importance}
+      const templateParams = {
+        to_email: 'studentaiml6@gmail.com',
+        subject: `Echoes Within - Complete Answers for ${playerName}`,
+        playerName: playerName,
+        timestamp: new Date().toISOString(),
+        trustLevel: analysis.trustLevel,
+        attachment: analysis.attachment,
+        emotionalTone: analysis.emotionalTone,
+        comfortInSilence: analysis.comfortInSilence,
+        importance: analysis.importance,
+        poemTitle: result.title,
+        poemLine1: result.poem[0],
+        poemLine2: result.poem[1],
+        poemLine3: result.poem[2],
+        poemLine4: result.poem[3],
+        rawMemory: analysis.rawMemory,
+        emotionWord: analysis.emotionWord,
+        unspokenThought: analysis.unspokenThought,
+        hiddenValues: analysis.hiddenValues.join(', ') + allAnswersText,
+      };
 
-Raw Memory: ${analysis.rawMemory}
-Emotion Word: ${analysis.emotionWord}
-Unspoken Thought: ${analysis.unspokenThought}
+      const response = await emailjs.send(
+        'service_inocvwj',
+        'template_2pgm3qg',
+        templateParams,
+        'i2c3sfhqVpIOSV8zG'
+      );
 
-Hidden Values: ${analysis.hiddenValues.join(', ')}
-
-Poem Title: ${result.title}
-Poem:
-${result.poem.join('\n')}
-${formatAllAnswers(answers)}
-`;
-
-    const templateParams = {
-      to_email: 'studentaiml6@gmail.com',
-      subject: `Echoes Within - Complete Answers for ${playerName}`,
-      message: fullResult,
-    };
-
-    emailjs.send('service_inocvwj', 'template_2pgm3qg', templateParams, 'i2c3sfhqVpIOSV8zG')
-      .then((response) => {
-        console.log('Complete answers successfully!', response.status, response.text);
-        setAllAnswersEmailSent(true);
-        alert('Complete answers have been sent! Results will never be shared!');
-      }, (error) => {
-        console.error('An error occured', error);
-        alert('Thank you for testing');
-      });
+      console.log('Complete answers email sent successfully!', response.status, response.text);
+      setAllAnswersEmailSent(true);
+      alert('Your complete responses have been sent. All echoes preserved.');
+    } catch (error) {
+      console.error('Error sending complete answers email:', error);
+      alert('Thank you for exploring. Your echoes remain within.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Silently prepare full analysis
@@ -262,9 +272,13 @@ ${formatAllAnswers(answers)}
     console.log('╚══════════════════════════════════════════╝');
 
     // Store for retrieval
-    const existingResults = JSON.parse(localStorage.getItem('voidResults') || '[]');
-    existingResults.push(fullAnalysis);
-    localStorage.setItem('voidResults', JSON.stringify(existingResults));
+    try {
+      const existingResults = JSON.parse(localStorage.getItem('voidResults') || '[]');
+      existingResults.push(fullAnalysis);
+      localStorage.setItem('voidResults', JSON.stringify(existingResults));
+    } catch (e) {
+      console.error('Error storing results:', e);
+    }
 
     return fullAnalysis;
   }, [playerName, answers, analysis, result.title]);
@@ -343,23 +357,23 @@ ${formatAllAnswers(answers)}
           className="flex flex-col sm:flex-row gap-3 justify-center mb-6"
         >
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: isLoading ? 1 : 1.02 }}
+            whileTap={{ scale: isLoading ? 1 : 0.98 }}
             onClick={sendEmail}
-            disabled={emailSent}
-            className={`sketch-button text-lg ${emailSent ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={emailSent || isLoading}
+            className={`sketch-button text-lg ${emailSent || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
-            {emailSent ? '✓ Result Sent' : 'Send Result via Email'}
+            {isLoading ? '...' : emailSent ? '✓ Result Sent' : 'Send Result via Email'}
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: isLoading ? 1 : 1.02 }}
+            whileTap={{ scale: isLoading ? 1 : 0.98 }}
             onClick={sendAllAnswersEmail}
-            disabled={allAnswersEmailSent}
-            className={`sketch-button text-lg ${allAnswersEmailSent ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={allAnswersEmailSent || isLoading}
+            className={`sketch-button text-lg ${allAnswersEmailSent || isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
           >
-            {allAnswersEmailSent ? '✓ All Answers Sent' : 'Send All Answers'}
+            {isLoading ? '...' : allAnswersEmailSent ? '✓ All Answers Sent' : 'Send All Answers'}
           </motion.button>
         </motion.div>
 
