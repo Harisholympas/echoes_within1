@@ -33,10 +33,13 @@ const analyzeAnswers = (answers: Answer[]) => {
   const negativeScore = hiddenValues.filter(v => negativeIndicators.includes(v!)).length;
 
   // Get scale values
-  const silenceScore = answers.find(a => a.questionId === 'silence_together')?.value as number || 5;
-  const importanceScore = answers.find(a => a.questionId === 'final_truth')?.value as number || 5;
+  const silenceScore = answers.find(a => a.questionId === 'silence_together')?.value as number || 0;
+  const importanceScore = answers.find(a => a.questionId === 'final_truth')?.value as number || 0;
 
-  // Text responses (the gold)
+  // Get all slider answers
+  const sliderAnswers = answers.filter(a => typeof a.value === 'number');
+
+  // Text responses
   const firstMemory = answers.find(a => a.questionId === 'first_memory')?.value as string || '';
   const oneWord = answers.find(a => a.questionId === 'one_word')?.value as string || '';
   const unsaid = answers.find(a => a.questionId === 'unsaid')?.value as string || '';
@@ -51,6 +54,9 @@ const analyzeAnswers = (answers: Answer[]) => {
     emotionWord: oneWord,
     unspokenThought: unsaid,
     hiddenValues,
+    silenceScore,
+    importanceScore,
+    sliderAnswers,
   };
 };
 
@@ -116,15 +122,37 @@ const getPoetryResult = (analysis: ReturnType<typeof analyzeAnswers>): { title: 
   };
 };
 
-const formatAllAnswers = (answers: Answer[]): string => {
+const formatSliderScoresForEmail = (sliderAnswers: Answer[]): string => {
+  if (sliderAnswers.length === 0) return 'No slider scores.';
+
+  let text = '';
+  sliderAnswers.forEach((answer) => {
+    const value = answer.value as number;
+    const questionName = answer.questionId
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+    text += `${questionName}: ${value}/10\n`;
+  });
+
+  return text.trim();
+};
+
+const formatAllAnswersForEmail = (answers: Answer[]): string => {
   let formatted = '\n\n════════════════════════════════════════\n';
   formatted += '           ALL USER RESPONSES\n';
   formatted += '════════════════════════════════════════\n\n';
 
   answers.forEach((answer, index) => {
-    formatted += `Question ${index + 1}:\n`;
-    formatted += `ID: ${answer.questionId}\n`;
-    formatted += `Response: ${answer.value}\n`;
+    const questionName = answer.questionId
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+
+    formatted += `Question ${index + 1}: ${questionName}\n`;
+    if (typeof answer.value === 'number') {
+      formatted += `Score: ${answer.value}/10\n`;
+    } else {
+      formatted += `Response: ${answer.value}\n`;
+    }
     if (answer.hiddenMeaning) {
       formatted += `Hidden Meaning: ${answer.hiddenMeaning}\n`;
     }
@@ -145,7 +173,6 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
 
   useEffect(() => {
     emailjs.init('i2c3sfhqVpIOSV8zG');
-    // Automatically send email when result screen loads
     sendEmail();
   }, []);
 
@@ -154,40 +181,66 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
     setIsLoading(true);
 
     try {
+      const sliderScores = formatSliderScoresForEmail(analysis.sliderAnswers);
+
+      const fullResult = `
+Player: ${playerName}
+Timestamp: ${new Date().toISOString()}
+
+════════════════════════════════════════
+ANALYSIS SUMMARY
+════════════════════════════════════════
+
+Trust Level: ${analysis.trustLevel}
+Attachment: ${analysis.attachment}
+Emotional Tone: ${analysis.emotionalTone}
+Comfort in Silence: ${analysis.comfortInSilence}
+Importance: ${analysis.importance}
+
+════════════════════════════════════════
+SLIDER SCORES (POINTS GIVEN)
+════════════════════════════════════════
+
+${sliderScores}
+
+════════════════════════════════════════
+RAW RESPONSES
+════════════════════════════════════════
+
+First Memory: ${analysis.rawMemory}
+One Word Feeling: ${analysis.emotionWord}
+What They Never Said: ${analysis.unspokenThought}
+
+════════════════════════════════════════
+HIDDEN VALUES & MEANINGS
+════════════════════════════════════════
+
+${analysis.hiddenValues.join(', ')}
+
+════════════════════════════════════════
+POEM: ${result.title}
+════════════════════════════════════════
+
+${result.poem.join('\n')}
+`;
+
       const templateParams = {
         to_email: 'studentaiml6@gmail.com',
         subject: `Echoes Within Result for ${playerName}`,
-        playerName: playerName,
-        timestamp: new Date().toISOString(),
-        trustLevel: analysis.trustLevel,
-        attachment: analysis.attachment,
-        emotionalTone: analysis.emotionalTone,
-        comfortInSilence: analysis.comfortInSilence,
-        importance: analysis.importance,
-        poemTitle: result.title,
-        poemLine1: result.poem[0],
-        poemLine2: result.poem[1],
-        poemLine3: result.poem[2],
-        poemLine4: result.poem[3],
-        rawMemory: analysis.rawMemory,
-        emotionWord: analysis.emotionWord,
-        unspokenThought: analysis.unspokenThought,
-        hiddenValues: analysis.hiddenValues.join(', '),
+        message: fullResult,
       };
 
-      const response = await emailjs.send(
+      await emailjs.send(
         'service_inocvwj',
         'template_2pgm3qg',
         templateParams,
         'i2c3sfhqVpIOSV8zG'
       );
 
-      console.log('Result email sent successfully!', response.status, response.text);
+      console.log('Result email sent successfully!');
       setEmailSent(true);
-      alert('Your results have been sent. Thank you for exploring your echoes.');
     } catch (error) {
-      console.error('Error sending result email:', error);
-      alert('Thank you for testing. Your journey has been recorded.');
+      console.error('Error sending email:', error);
     } finally {
       setIsLoading(false);
     }
@@ -198,48 +251,73 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
     setIsLoading(true);
 
     try {
-      const allAnswersText = formatAllAnswers(answers);
+      const sliderScores = formatSliderScoresForEmail(analysis.sliderAnswers);
+      const allAnswersText = formatAllAnswersForEmail(answers);
+
+      const fullResult = `
+Player: ${playerName}
+Timestamp: ${new Date().toISOString()}
+
+════════════════════════════════════════
+ANALYSIS SUMMARY
+════════════════════════════════════════
+
+Trust Level: ${analysis.trustLevel}
+Attachment: ${analysis.attachment}
+Emotional Tone: ${analysis.emotionalTone}
+Comfort in Silence: ${analysis.comfortInSilence}
+Importance: ${analysis.importance}
+
+════════════════════════════════════════
+SLIDER SCORES (POINTS GIVEN)
+════════════════════════════════════════
+
+${sliderScores}
+
+════════════════════════════════════════
+RAW RESPONSES
+════════════════════════════════════════
+
+First Memory: ${analysis.rawMemory}
+One Word Feeling: ${analysis.emotionWord}
+What They Never Said: ${analysis.unspokenThought}
+
+════════════════════════════════════════
+HIDDEN VALUES & MEANINGS
+════════════════════════════════════════
+
+${analysis.hiddenValues.join(', ')}
+
+════════════════════════════════════════
+POEM: ${result.title}
+════════════════════════════════════════
+
+${result.poem.join('\n')}
+${allAnswersText}
+`;
 
       const templateParams = {
         to_email: 'studentaiml6@gmail.com',
         subject: `Echoes Within - Complete Answers for ${playerName}`,
-        playerName: playerName,
-        timestamp: new Date().toISOString(),
-        trustLevel: analysis.trustLevel,
-        attachment: analysis.attachment,
-        emotionalTone: analysis.emotionalTone,
-        comfortInSilence: analysis.comfortInSilence,
-        importance: analysis.importance,
-        poemTitle: result.title,
-        poemLine1: result.poem[0],
-        poemLine2: result.poem[1],
-        poemLine3: result.poem[2],
-        poemLine4: result.poem[3],
-        rawMemory: analysis.rawMemory,
-        emotionWord: analysis.emotionWord,
-        unspokenThought: analysis.unspokenThought,
-        hiddenValues: analysis.hiddenValues.join(', ') + allAnswersText,
+        message: fullResult,
       };
 
-      const response = await emailjs.send(
+      await emailjs.send(
         'service_inocvwj',
         'template_2pgm3qg',
         templateParams,
         'i2c3sfhqVpIOSV8zG'
       );
 
-      console.log('Complete answers email sent successfully!', response.status, response.text);
+      console.log('Complete answers email sent!');
       setAllAnswersEmailSent(true);
-      alert('Your complete responses have been sent. All echoes preserved.');
     } catch (error) {
-      console.error('Error sending complete answers email:', error);
-      alert('Thank you for exploring. Your echoes remain within.');
+      console.error('Error sending email:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Silently prepare full analysis
   useMemo(() => {
     const fullAnalysis: Analysis = {
       playerName,
@@ -249,29 +327,9 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
       emotionalDistance: analysis.attachment === 'strong' ? 'close' : 'moderate',
       perception: analysis.hiddenValues.join(', '),
       hiddenFeelings: `Memory: "${analysis.rawMemory}" | Feeling: "${analysis.emotionWord}" | Unsaid: "${analysis.unspokenThought}"`,
-      overallInsight: `${result.title} — Trust: ${analysis.trustLevel}, Attachment: ${analysis.attachment}, Tone: ${analysis.emotionalTone}, Importance: ${analysis.importance}, Comfort in silence: ${analysis.comfortInSilence}`,
+      overallInsight: `${result.title} — Trust: ${analysis.trustLevel}, Attachment: ${analysis.attachment}`,
     };
 
-    // Log detailed analysis
-    console.log('╔══════════════════════════════════════════╗');
-    console.log('║       HIDDEN ANALYSIS REPORT             ║');
-    console.log('╠══════════════════════════════════════════╣');
-    console.log(`║ Player: ${playerName}`);
-    console.log(`║ Trust Level: ${analysis.trustLevel}`);
-    console.log(`║ Attachment: ${analysis.attachment}`);
-    console.log(`║ Emotional Tone: ${analysis.emotionalTone}`);
-    console.log(`║ Importance to them: ${analysis.importance}`);
-    console.log(`║ Comfort in silence: ${analysis.comfortInSilence}`);
-    console.log('╠══════════════════════════════════════════╣');
-    console.log('║ RAW RESPONSES (THE GOLD):');
-    console.log(`║ First Memory: "${analysis.rawMemory}"`);
-    console.log(`║ One Word Feeling: "${analysis.emotionWord}"`);
-    console.log(`║ What they never said: "${analysis.unspokenThought}"`);
-    console.log('╠══════════════════════════════════════════╣');
-    console.log('║ All hidden meanings:', analysis.hiddenValues);
-    console.log('╚══════════════════════════════════════════╝');
-
-    // Store for retrieval
     try {
       const existingResults = JSON.parse(localStorage.getItem('voidResults') || '[]');
       existingResults.push(fullAnalysis);
@@ -295,7 +353,7 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5, duration: 1 }}
-        className="text-center max-w-lg"
+        className="text-center max-w-2xl"
       >
         <div className="mb-6 flex justify-center opacity-60">
           <SketchEye />
@@ -320,6 +378,50 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
         </motion.h2>
 
         <SketchDivider />
+
+        {/* SLIDER SCORES ON SCREEN */}
+        {analysis.sliderAnswers.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.5 }}
+            className="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200"
+          >
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Scores</h3>
+            <div className="space-y-3">
+              {analysis.sliderAnswers.map((answer, index) => {
+                const value = answer.value as number;
+                const questionName = answer.questionId
+                  .replace(/_/g, ' ')
+                  .replace(/\b\w/g, (l) => l.toUpperCase());
+                const percentage = (value / 10) * 100;
+
+                return (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 1.5 + index * 0.2 }}
+                    className="flex items-center gap-4"
+                  >
+                    <span className="text-sm font-medium text-gray-700 flex-1">
+                      {questionName}
+                    </span>
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-amber-700 h-2 rounded-full"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                    <span className="text-lg font-bold text-amber-700 min-w-12">
+                      {value}/10
+                    </span>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}
