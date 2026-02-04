@@ -177,7 +177,7 @@ ${result.poem.join('\n')}
       message: fullResult,
     };
 
-    emailjs.send('service_1mg2wbm', 'template_l3eu4nr', templateParams, 'i2c3sfhqVpIOSV8zG')
+    emailjs.send('service_inocvwj', 'template_2pgm3qg', templateParams, 'i2c3sfhqVpIOSV8zG')
       .then((response) => {
         console.log('Thank You for the attempt!', response.status, response.text);
         setEmailSent(true);
@@ -218,9 +218,9 @@ ${formatAllAnswers(answers)}
       message: fullResult,
     };
 
-    emailjs.send('service_1mg2wbm', 'template_l3eu4nr', templateParams, 'i2c3sfhqVpIOSV8zG')
+    emailjs.send('service_inocvwj', 'template_2pgm3qg', templateParams, 'i2c3sfhqVpIOSV8zG')
       .then((response) => {
-        console.log('Complete answers sent successfully!', response.status, response.text);
+        console.log('Complete answers successfully!', response.status, response.text);
         setAllAnswersEmailSent(true);
         alert('Complete answers have been sent! Results will never be shared!');
       }, (error) => {
