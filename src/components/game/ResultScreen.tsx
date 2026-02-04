@@ -1,6 +1,5 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import emailjs from '@emailjs/browser';
 import { Analysis, Answer } from '@/types/game';
 import { SketchEye, SketchDivider } from './SketchElements';
 
@@ -120,51 +119,6 @@ export const ResultScreen = ({ playerName, answers, onRestart }: ResultScreenPro
   const analysis = useMemo(() => analyzeAnswers(answers), [answers]);
   const result = useMemo(() => getPoetryResult(analysis), [analysis]);
 
-  useEffect(() => {
-    emailjs.init('i2c3sfhqVpIOSV8zG');
-    // Automatically send email when result screen loads
-    sendEmail();
-  }, []);
-
-  const sendEmail = () => {
-    const fullResult = `
-Player: ${playerName}
-
-Timestamp: ${new Date().toISOString()}
-
-Trust Level: ${analysis.trustLevel}
-Attachment: ${analysis.attachment}
-Emotional Tone: ${analysis.emotionalTone}
-Comfort in Silence: ${analysis.comfortInSilence}
-Importance: ${analysis.importance}
-
-Raw Memory: ${analysis.rawMemory}
-Emotion Word: ${analysis.emotionWord}
-Unspoken Thought: ${analysis.unspokenThought}
-
-Hidden Values: ${analysis.hiddenValues.join(', ')}
-
-Poem Title: ${result.title}
-Poem:
-${result.poem.join('\n')}
-`;
-
-    const templateParams = {
-      to_email: 'studentaiml6@gmail.com',
-      subject: `Echoes Within Result for ${playerName}`,
-      message: fullResult,
-    };
-
-    emailjs.send('service_1mg2wbm', 'template_l3eu4nr', templateParams, 'i2c3sfhqVpIOSV8zG')
-      .then((response) => {
-        console.log('Email sent successfully!', response.status, response.text);
-        alert('Result sent via email!');
-      }, (error) => {
-        console.error('Failed to send email:', error);
-        alert('Failed to send email. Please try again.');
-      });
-  };
-
   // Silently prepare full analysis
   useMemo(() => {
     const fullAnalysis: Analysis = {
@@ -271,18 +225,6 @@ ${result.poem.join('\n')}
           The echoes have been gathered.<br />
           What they reveal is for another to know.
         </motion.p>
-
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 3.8 }}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={sendEmail}
-          className="sketch-button text-lg mr-4"
-        >
-          Send Result via Email
-        </motion.button>
 
         <motion.button
           initial={{ opacity: 0 }}
